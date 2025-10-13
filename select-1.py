@@ -1,62 +1,47 @@
 import socket
+from select import select
 
-URLS = {
-    "/": "hello",
-    "/blog": "hello blog"
-}
+to_monitor = []
+
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_socket.bind(('localhost', 5001))
+server_socket.listen()
+
+def accept_connection(server_socket):
+    client_socket, addr = server_socket.accept()
+
+    print(addr)
+
+    send_message(client_socket)
+
+    to_monitor.append(client_socket)
 
 
-def generate_resp(request):
-    method, url = parse_request(request)
-    headers, code = generate_headers(method, url)
+def send_message(client_socket):
     
-    body = generate_content(code, url)
+    request = client_socket.recv(4096)
 
-    return (headers + body).encode()
-
-
-def generate_content(code, url):
-    if code == 404:
-        return '<h1>404</h1><p>Not found</p>'
-    if code == 405:
-        return '<h1>405</h1><p>Not allowed</p>'
-    return "<h1>{}</h1>".format(URLS[url])
-
-
-def generate_headers(method, url):
-    if not method == "GET":
-        return ("HTTP/1.1 405 Method not allowed\n\n", 405)
-
-    if not url in URLS:
-        return ("HTTP/1.1 404 Not found\n\n", 404)
-
-    return ("HTTP/1.1 200 OK\n\n", 200)
-
-
-def parse_request(request):
-    parsed = request.split(" ")
-    method = parsed[0]
-    url = parsed[1]
-
-    return method, url
-
-
-def main():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(('localhost', 5001))
-    server_socket.listen()
-
-    while True:
-        client_socket, addr = server_socket.accept()
-        request = client_socket.recv(1024)
-        print(request.decode("utf-8"), "\n", addr)
-
-
-        response = generate_resp(request.decode("utf-8"))
-
-        client_socket.sendall(response)
+    if request:
+        response = "Hello world \n\n".encode()
+        client_socket.send(response)
+    else:
         client_socket.close()
+        
+
+
+
+def event_loop():
+    while True:
+        ready_to_read, _, _ = select(to_monitor, [], [])
+
+        for sock in ready_to_read:
+            if sock is server_socket:
+                accept_connection(sock)
+            else: 
+                send_message(sock)
+
 
 if __name__ == "__main__":
-    main()
+    to_monitor.append(server_socket)
+    event_loop()
