@@ -6,14 +6,26 @@ def coroutine(func):
     return inner
 
 
-class MyException():
+class MyException(Exception):
     pass
 
-
 def subgen():
-    for i in "oleg":
-        yield i
+    while True:
+        try:
+            message = yield
+        except MyException:
+            print("smth")
+        else:
+            print("...........", message)
 
+@coroutine
 def delegator(g):
-    for i in g:
-        yield i
+    # while True:
+    #     try:
+    #         data = yield
+    #         g.send(data)
+    #     except StopIteration:
+    #         pass
+    #     else:
+    #         print("...........", message)
+    yield from g
